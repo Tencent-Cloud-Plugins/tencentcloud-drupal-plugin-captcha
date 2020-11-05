@@ -11,7 +11,6 @@
 | 最新版本   | v1.0.0 (2020.10.16)                                          |
 | 适用平台   | [Drupal](https://www.drupal.org/)                          |
 | 适用产品   | [腾讯云验证码](https://cloud.tencent.com/document/product/1110/36334) |
-| GitHub项目 | [tencentcloud-drupal-plugin-captcha](https://github.com/Tencent-Cloud-Plugins/tencentcloud-drupal-plugin-captcha) |
 | 主创团队   | 腾讯云中小企业产品中心（SMB Product Center of Tencent Cloud） |
 
 
@@ -61,18 +60,11 @@
 - **启用场景**： 腾讯云短信验证码提供四种业务场景，用户可根据Drupal验证场景自由开启腾讯云验证码场景。
 
 
-
-## 5.获取入口
-
-| 插件入口          | 链接                                                         |
-| ----------------- | ------------------------------------------------------------ |
-| GitHub            | [link](https://github.com/Tencent-Cloud-Plugins/tencentcloud-drupal-plugin-captcha) |
-
-## 6.FAQ
+## 5.FAQ
 
 
 
-## 7.GitHub版本迭代记录
+## 6.GitHub版本迭代记录
 
 ### 7.1 tencentcloud-drupal-plugin-captcha v1.0.0
 
