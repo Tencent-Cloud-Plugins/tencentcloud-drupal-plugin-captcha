@@ -1,0 +1,5 @@
+{
+    "require": {
+        "tencentcloud/captcha": "^3.0"
+    }
+}

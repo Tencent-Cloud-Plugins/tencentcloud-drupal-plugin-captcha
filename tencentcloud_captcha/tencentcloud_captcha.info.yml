@@ -1,0 +1,14 @@
+name: 'TencentCloud Captcha'
+type: module
+description: '稳定、安全、灵活、美观的验证码服务，满足您对自动机防护的需求。'
+package: Spam control
+core: 8.x
+core_version_requirement: ^8 || ^9
+configure: tencentcloud_captcha.settings_form
+dependencies:
+  - captcha:captcha
+
+# Information added by Drupal.org packaging script on 2020-06-03
+version: '8.x-3.0'
+project: 'tencentcloud_captcha'
+datestamp: 1591216087

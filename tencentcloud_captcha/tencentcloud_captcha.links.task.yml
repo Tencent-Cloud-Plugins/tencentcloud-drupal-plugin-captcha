@@ -1,0 +1,5 @@
+tencentcloud_captcha.settings_form:
+  route_name: tencentcloud_captcha.settings_form
+  title: Tencentcloud Captcha Settings
+  base_route: captcha_settings
+  weight: 9

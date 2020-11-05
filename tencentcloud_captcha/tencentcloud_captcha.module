@@ -1,0 +1,209 @@
+<?php
+/**
+ * Copyright (C) 2020 Tencent Cloud.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\Component\Utility\Html;
+use TencentCloud\Common\Credential;
+use TencentCloud\Common\Profile\ClientProfile;
+use TencentCloud\Common\Profile\HttpProfile;
+use TencentCloud\Common\Exception\TencentCloudSDKException;
+use TencentCloud\Captcha\V20190722\CaptchaClient;
+use TencentCloud\Captcha\V20190722\Models\DescribeCaptchaResultRequest;
+use Drupal\tencentcloud_captcha\UsageDataReport;
+
+/**
+ * Implements hook_install().
+ */
+function tencentcloud_captcha_install()
+{
+  captcha_set_form_id_setting('comment_comment_form', 'tencentcloud_captcha/tencentcloud_captcha');
+  $host = \Drupal::request()->getSchemeAndHttpHost();
+  $uuid = substr(md5(\Drupal::config('system.site')->get('uuid')), 8, 16);
+  $data = [
+    'action' => 'activate',
+    'plugin_type' => 'captcha',
+    'data' => [
+      'site_id' => 'drupal_' . $uuid,
+      'site_url' => $host,
+      'site_app' => 'Drupal',
+      'cust_sec_on' => 1,
+      'others' => \json_encode([
+        'captcha_appid' => '',
+        'captcha_appid_pwd' => '',
+      ])
+    ]
+  ];
+  (new UsageDataReport())->report($data);
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function tencentcloud_captcha_uninstall($is_syncing)
+{
+  \Drupal::configFactory()->getEditable('tencentcloud_captcha.settings')->delete();
+  $config = \Drupal::config('tencentcloud_captcha.settings');
+  $secret_id = $config->get('secret_id');
+  $secret_key = $config->get('secret_key');
+  $app_id = $config->get('app_id');
+  $app_secret_key = $config->get('app_secret_key');
+  $host = \Drupal::request()->getSchemeAndHttpHost();
+  $uuid = substr(md5(\Drupal::config('system.site')->get('uuid')), 8, 16);
+  $data = [
+    'action' => 'deactivate',
+    'plugin_type' => 'captcha',
+    'data' => [
+      'site_id' => 'drupal_' . $uuid,
+      'site_url' => $host,
+      'site_app' => 'Drupal',
+      'cust_sec_on' => 1,
+      'others' => \json_encode([
+        'captcha_appid' => $app_id,
+        'captcha_appid_pwd' => $app_secret_key,
+      ])
+    ]
+  ];
+  (new UsageDataReport())->report($data);
+}
+
+
+/**
+ * Implements hook_help().
+ */
+function tencentcloud_captcha_help($route_name, RouteMatchInterface $route_match)
+{
+  $output = '';
+  if ( $route_name == 'help.page.tencentcloud_captcha' ) {
+    $output .= '<h3>' . t('About') . '</h3>';
+    $output .= '<li> <a target="_blank" href="https://openapp.qq.com/docs/">文档中心</a></li>';
+  }
+  return $output;
+}
+
+/**
+ * Implements hook_captcha().
+ */
+function tencentcloud_captcha_captcha($op, $captcha_type = '')
+{
+  if ( $op != 'generate' ) {
+    return ['tencentcloud_captcha'];
+  }
+
+  if ( $captcha_type != 'tencentcloud_captcha' ) {
+    return captcha_captcha('generate', 'Math');
+  }
+  $captcha = [];
+  $config = \Drupal::config('tencentcloud_captcha.settings');
+  $secret_id = $config->get('secret_id');
+  $secret_key = $config->get('secret_key');
+  $app_id = $config->get('app_id');
+  $app_secret_key = $config->get('app_secret_key');
+  if ( empty($secret_id) || empty($secret_key) || empty($app_id) || empty($app_secret_key) ) {
+    $captcha = captcha_captcha('generate', 'Math');
+    return $captcha;
+  }
+  $captcha['solution'] = TRUE;
+  $captcha['captcha_validate'] = 'tencentcloud_captcha_captcha_validation';
+  $captcha['form']['captcha_response'][] = [
+    '#type' => 'button',
+    '#cache' => ['max-age' => 0],
+    '#value' => '人机验证',
+    '#executes_submit_callback' => FALSE,
+    '#attributes' => [
+      'id' => Html::getUniqueId('tencentcloud-captcha'),
+      'class' => ['btn', 'btn-primary'],
+      'data-app-id' => $app_id
+    ],
+    '#attached' => [
+      'library' => [
+        'tencentcloud_captcha/tencentcloud_captcha',
+        'tencentcloud_captcha/tencentcloud_captcha_actions',
+      ],
+    ],
+  ];
+  $captcha['form']['captcha_response'][] = [
+    '#type' => 'hidden',
+    '#value' => '',
+    '#name' => 'captcha_randstr',
+    '#cache' => ['max-age' => 0],
+    '#attributes' => [
+      'id' => Html::getUniqueId('captcha-randstr'),
+    ],
+  ];
+  $captcha['form']['captcha_response'][] = [
+    '#type' => 'hidden',
+    '#value' => '',
+    '#name' => 'captcha_ticket',
+    '#cache' => ['max-age' => 0],
+    '#attributes' => [
+      'id' => Html::getUniqueId('captcha-ticket'),
+    ],
+  ];
+
+  $captcha['cacheable'] = FALSE;
+  \Drupal::service('page_cache_kill_switch')->trigger();
+  return $captcha;
+}
+
+/**
+ * CAPTCHA Callback;
+ */
+function tencentcloud_captcha_captcha_validation($solution, $response, $element, $form_state)
+{
+  $dir = __DIR__ . DIRECTORY_SEPARATOR;
+  require $dir . 'vendor/autoload.php';
+  $config = \Drupal::config('tencentcloud_captcha.settings');
+  $secret_id = $config->get('secret_id');
+  $secret_key = $config->get('secret_key');
+  $app_id = (int)$config->get('app_id');
+  $app_secret_key = $config->get('app_secret_key');
+  $request = \Drupal::request();
+  $ip = $request->getClientIp();
+  $ticket = $request->request->get('captcha_ticket', '');
+  $randstr = $request->request->get('captcha_randstr', '');
+
+  try {
+    $cred = new Credential($secret_id, $secret_key);
+    $httpProfile = new HttpProfile();
+    $httpProfile->setEndpoint("captcha.tencentcloudapi.com");
+
+    $clientProfile = new ClientProfile();
+    $clientProfile->setHttpProfile($httpProfile);
+    $client = new CaptchaClient($cred, "", $clientProfile);
+
+    $req = new DescribeCaptchaResultRequest();
+
+    $params = array(
+      "CaptchaType" => 9,
+      "Ticket" => $ticket,
+      "UserIp" => $ip,
+      "Randstr" => $randstr,
+      "CaptchaAppId" => $app_id,
+      "AppSecretKey" => $app_secret_key
+    );
+    $req->fromJsonString(\json_encode($params));
+    $resp = $client->DescribeCaptchaResult($req);
+    if ( $resp->getCaptchaCode() === 1 ) {
+      return true;
+    }
+    $form_state->setErrorByName('captcha_response', '人机验证未通过');
+    return false;
+  } catch (TencentCloudSDKException $e) {
+    $form_state->setErrorByName('captcha_response', '系统错误');
+    return false;
+  }
+}

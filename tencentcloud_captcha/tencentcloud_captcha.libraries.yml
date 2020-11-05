@@ -1,0 +1,27 @@
+tencentcloud_captcha:
+  version: 1.0
+  header: true
+  js:
+    js/TCaptcha.js: { }
+
+
+tencentcloud_captcha_actions:
+  version: 1.0
+  js:
+    js/actions.js: { }
+  dependencies:
+    - core/drupal
+    - core/jquery.once
+
+hide_secret:
+  version: 1.0
+  js:
+    js/hide_secret.js: { }
+  dependencies:
+    - core/jquery.once
+
+custom_filed:
+  version: 1.0
+  css:
+    theme:
+      css/custom_filed.css: { }
